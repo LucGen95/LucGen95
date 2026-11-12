@@ -34,7 +34,8 @@ Se a decisão aparecer nesse terminal, a ponte está funcionando.
 ## Jogando
 
 1. Nas opções de vídeo do jogo, use **janela sem bordas**. Em tela cheia
-   exclusiva a captura sai preta e o overlay não aparece.
+   exclusiva a captura sai preta e o overlay não aparece. Ligue também as
+   **legendas**: é por elas que o Claude acompanha as falas.
 2. Deixe o Claude Code aberto na pasta, jogando ("bora jogar").
 3. Rode `python observador.py` e deixe o terminal aberto.
 4. Atalhos:
@@ -43,7 +44,7 @@ Se a decisão aparecer nesse terminal, a ponte está funcionando.
    | --- | --- |
    | F8 | Cena da Kara ou do Markus: o Claude decide |
    | F9 | Cena do Connor: o Claude diz o que faria |
-   | F7 | Liga/desliga o modo assistir: uma captura a cada 30s, e o Claude comenta se quiser |
+   | F7 | Liga/desliga o modo assistir: uma captura a cada 20s, e o Claude comenta se quiser |
    | F10 | Mostra/esconde o overlay |
    | Ctrl+Shift+F10 | Sai |
 
@@ -52,6 +53,11 @@ Se a decisão aparecer nesse terminal, a ponte está funcionando.
    (teste se o pause segura o cronômetro das escolhas).
 6. Aperte F9 de vez em quando nas cenas do Connor. Isso entra no diário e o
    Claude fica sabendo o que aconteceu na sua parte da história.
+
+O Claude não vê o jogo o tempo todo, só as capturas. Pra ele não perder a
+conversa, o observador recorta a faixa de legendas a cada 2 segundos e manda
+esses recortes junto com a próxima captura (F7, F8 ou F9). Então ele lê as
+falas dos últimos 24 segundos mesmo vendo a tela cheia só de vez em quando.
 
 Cada captura gasta do limite de uso do seu plano. O modo assistir é o que
 mais gasta; ligue só nas cenas em que quiser comentário.
@@ -65,7 +71,7 @@ mais gasta; ligue só nas cenas em que quiser comentário.
 - `CLAUDE.md`: as regras do jogo e as instruções que o Claude segue.
 - `diario.jsonl` (criado ao jogar): todas as decisões. É a memória do Claude
   entre sessões. Apagar o arquivo zera a memória.
-- `capturas/` (criado ao jogar): as últimas 50 telas enviadas, pra conferir
+- `capturas/` (criado ao jogar): as últimas telas e tiras de legendas, pra conferir
   o que ele viu quando a decisão parecer estranha.
 
 ## O que foi e o que não foi testado

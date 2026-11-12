@@ -31,7 +31,11 @@ def esperar(limite: float) -> None:
     print(f"PEDIDO {pedido['id']}")
     print(f"modo: {modo} ({nucleo.EXPLICACAO_DO_MODO.get(modo, '')})")
     print(f"imagem: {pedido['imagem']}")
-    print("Leia a imagem e responda com `python jogar.py responder ...`.")
+    if pedido.get("legendas"):
+        print(f"legendas: {pedido['legendas']}")
+        print("  (faixa de baixo da tela a cada 2s desde a última captura, da "
+              "mais antiga em cima pra mais recente embaixo; leia antes da imagem)")
+    print("Leia as imagens e responda com `python jogar.py responder ...`.")
 
 
 def main() -> None:

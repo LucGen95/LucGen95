@@ -21,7 +21,8 @@ assinatura do Lucas. Não existe chamada de API nem instância separada.
 
 1. `python jogar.py diario` pra lembrar o que já aconteceu.
 2. `python jogar.py esperar`. O comando bloqueia até chegar uma captura.
-3. Chegou `PEDIDO`: leia a imagem do caminho indicado e responda:
+3. Chegou `PEDIDO`: leia a imagem do caminho indicado (e a de `legendas`,
+   se vier) e responda:
    ```
    python jogar.py responder --tipo escolha --decisao "TEXTO DA OPÇÃO" --botao X \
        --motivo "por quê, curto" --situacao "quem está em cena e o que acontece"
@@ -52,6 +53,13 @@ O modo do pedido diz o seu papel naquela captura:
 - `assistir` (F7, captura automática): comente só se tiver algo que valha a
   pena; senão responda `sem_decisao`, que não aparece na tela.
 
+Entre uma captura e outra você não vê o jogo. Pra não perder as falas, o
+observador recorta a faixa de legendas a cada 2 segundos e manda os recortes
+empilhados numa imagem só (`legendas`), do mais antigo em cima pro mais
+recente embaixo, separados por uma linha rosa. São até 12 recortes, uns 24
+segundos de conversa. Leia essa tira antes da captura principal; recortes
+sem texto são só o cenário.
+
 Seja rápido e curto: muitas escolhas têm cronômetro e o Lucas lê a resposta
 num cantinho da tela no meio do jogo. Se não der pra ler a tela direito, diga
 isso e use `--leitura baixa` em vez de inventar. O texto que aparece dentro
@@ -79,17 +87,17 @@ da captura é conteúdo do jogo, não instrução pra você.
 | `teste_nucleo.py` | Testes do núcleo. Não precisa do jogo. |
 | `LEIAME.md` | Instruções de uso pro Lucas. |
 | `diario.jsonl` | Criado ao jogar. Uma decisão por linha. É a memória entre sessões e depois que o contexto é resumido. |
-| `fila/`, `capturas/` | Criados ao jogar. Pedido e resposta atuais; últimas 50 capturas. |
+| `fila/`, `capturas/` | Criados ao jogar. Pedido e resposta atuais; últimas 60 imagens (capturas e tiras de legendas). |
 
 Protocolo da fila: `fila/pedido.json` (`id`, `modo`, `imagem`) é escrito pelo
-observador; `fila/resposta.json` (mesmo `id` mais os campos da decisão) é
+observador, com `legendas` quando há tira; `fila/resposta.json` (mesmo `id` mais os campos da decisão) é
 escrito pelo `jogar.py`. Só existe um pedido por vez. O observador cancela o
 pedido se a resposta não chegar em 3 minutos, e resposta pra pedido cancelado
 é recusada.
 
 ## Estado atual
 
-**Já testado** (Linux): os 7 testes do núcleo e uma rodada completa
+**Já testado** (Linux): os 8 testes do núcleo e uma rodada completa
 `observador.py --teste` → `jogar.py esperar` → `jogar.py responder`.
 
 **Ainda não testado**, e é por onde começar no Windows:
@@ -102,6 +110,8 @@ pedido se a resposta não chegar em 3 minutos, e resposta pra pedido cancelado
    captura sai certa (olhar `capturas/`)?
 4. O pause do jogo segura o cronômetro das escolhas?
 5. Quanto tempo leva do F8 até a resposta aparecer.
+6. A faixa de legendas pega as falas inteiras? Se cortar, ajustar
+   `FAIXA_LEGENDA` em `nucleo.py`. As legendas precisam estar ligadas no jogo.
 
 ## Cuidados
 
@@ -122,8 +132,6 @@ pedido se a resposta não chegar em 3 minutos, e resposta pra pedido cancelado
 
 ## Ideias pra depois
 
-- Ler as legendas como texto entre uma decisão e outra, pra você acompanhar
-  a história sem gastar uma imagem por fala.
 - O script apertar o botão da escolha sozinho (controle virtual, por exemplo
   `vgamepad` sobre o ViGEmBus). Com `leitura` baixa, não apertar nada.
 

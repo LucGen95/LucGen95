@@ -24,7 +24,9 @@ from PIL import Image, ImageChops, ImageStat
 LARGURA_MAX = 1280         # a captura é reduzida pra essa largura antes de salvar
 QUALIDADE_JPEG = 85
 DECISOES_NO_RESUMO = 40    # quantas entradas recentes do diário entram no resumo
-CAPTURAS_GUARDADAS = 50    # capturas antigas além disso são apagadas
+CAPTURAS_GUARDADAS = 60    # imagens antigas além disso são apagadas
+LARGURA_LEGENDA = 960      # largura de cada recorte de legenda
+FAIXA_LEGENDA = (0.72, 0.97)  # onde ficam as legendas: de 72% a 97% da altura
 TOLERANCIA_OUVINDO = 60    # segundos sem sinal até achar que o Claude saiu
 
 MODO_DECIDIR = "decidir"     # cenas da Kara e do Markus: o Claude manda
@@ -73,6 +75,31 @@ def mudou_bastante(antes: Image.Image | None, agora: Image.Image, limiar: float 
     return ImageStat.Stat(ImageChops.difference(a, b)).mean[0] > limiar
 
 
+def recortar_legenda(img: Image.Image) -> Image.Image:
+    """Recorta a faixa de baixo da tela, onde o jogo mostra as legendas."""
+    topo, base = (round(img.height * f) for f in FAIXA_LEGENDA)
+    faixa = img.crop((0, topo, img.width, base)).convert("RGB")
+    if faixa.width > LARGURA_LEGENDA:
+        altura = max(1, round(faixa.height * LARGURA_LEGENDA / faixa.width))
+        faixa = faixa.resize((LARGURA_LEGENDA, altura), Image.LANCZOS)
+    return faixa
+
+
+def montar_tira(recortes: list[Image.Image]) -> Image.Image | None:
+    """Empilha os recortes de legenda (mais antigo em cima) numa imagem só."""
+    if not recortes:
+        return None
+    borda = 3
+    largura = max(r.width for r in recortes)
+    altura = sum(r.height for r in recortes) + borda * (len(recortes) - 1)
+    tira = Image.new("RGB", (largura, altura), (255, 0, 255))
+    y = 0
+    for recorte in recortes:
+        tira.paste(recorte, (0, y))
+        y += recorte.height + borda
+    return tira
+
+
 # --------------------------------------------------------------------------
 # Diário (memória entre sessões e depois que o contexto é resumido)
 # --------------------------------------------------------------------------
@@ -115,6 +142,7 @@ def resumir_diario(entradas: list[dict]) -> str:
 # Fila de pedidos (a ponte entre o observador e o Claude Code)
 #
 #   fila/pedido.json     o observador escreve: {id, modo, imagem, quando}
+#                        e, se houver, legendas (tira com as falas recentes)
 #   fila/resposta.json   o Claude escreve (via jogar.py): {id, ...CAMPOS}
 #   fila/ouvindo         o jogar.py toca enquanto espera; o observador usa
 #                        pra avisar quando não tem ninguém do outro lado
@@ -139,21 +167,27 @@ def _ler_json(caminho: Path) -> dict | None:
     return dado if isinstance(dado, dict) else None
 
 
-def criar_pedido(pasta: Path, img: Image.Image, modo: str) -> dict:
-    """Salva a captura e deixa o pedido pro Claude. Devolve o pedido."""
+def criar_pedido(pasta: Path, img: Image.Image, modo: str,
+                 legendas: list[Image.Image] | None = None) -> dict:
+    """Salva a captura (e a tira de legendas) e deixa o pedido pro Claude."""
     capturas = pasta / "capturas"
     capturas.mkdir(parents=True, exist_ok=True)
     ident = str(int(time.time() * 1000))
     imagem = capturas / f"{ident}.jpg"
     preparar_imagem(img).save(imagem, format="JPEG", quality=QUALIDADE_JPEG)
-    for velha in sorted(capturas.glob("*.jpg"))[:-CAPTURAS_GUARDADAS]:
-        velha.unlink(missing_ok=True)
     pedido = {
         "id": ident,
         "modo": modo,
         "imagem": str(imagem.resolve()),
         "quando": time.strftime("%Y-%m-%d %H:%M:%S"),
     }
+    tira = montar_tira(legendas or [])
+    if tira is not None:
+        caminho_tira = capturas / f"{ident}-legendas.jpg"
+        tira.save(caminho_tira, format="JPEG", quality=QUALIDADE_JPEG)
+        pedido["legendas"] = str(caminho_tira.resolve())
+    for velha in sorted(capturas.glob("*.jpg"))[:-CAPTURAS_GUARDADAS]:
+        velha.unlink(missing_ok=True)
     _escrever_json(pasta / "fila" / "pedido.json", pedido)
     return pedido
 

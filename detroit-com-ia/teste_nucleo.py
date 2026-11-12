@@ -150,6 +150,22 @@ def teste_limpeza_de_capturas():
         assert Path(pedido["imagem"]) in [r.resolve() for r in restantes]
 
 
+def teste_legendas():
+    recorte = nucleo.recortar_legenda(tela())
+    assert recorte.size == (960, 135), recorte.size  # 25% de 1440, reduzido
+    assert nucleo.recortar_legenda(tela(tamanho=(800, 600))).size == (800, 150)
+    assert nucleo.montar_tira([]) is None
+    tira = nucleo.montar_tira([recorte, recorte, recorte])
+    assert tira.size == (960, 135 * 3 + 3 * 2)
+    with tempfile.TemporaryDirectory() as nome:
+        pasta = Path(nome)
+        sem = nucleo.criar_pedido(pasta, tela(), nucleo.MODO_DECIDIR)
+        assert "legendas" not in sem
+        com = nucleo.criar_pedido(pasta, tela(), nucleo.MODO_ASSISTIR, [recorte, recorte])
+        assert Image.open(com["legendas"]).size == (960, 135 * 2 + 3)
+        assert nucleo.esperar_pedido(pasta, limite_s=0)["legendas"] == com["legendas"]
+
+
 def teste_overlay():
     assert nucleo.formatar_para_tela(DECISAO).startswith(">> PROTEGER ALICE  [X]")
     assert "QTE" in nucleo.formatar_para_tela(dict(DECISAO, tipo="qte"))

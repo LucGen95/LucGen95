@@ -15,6 +15,7 @@ import argparse
 import queue
 import threading
 import time
+from collections import deque
 from pathlib import Path
 
 from PIL import Image
@@ -32,7 +33,9 @@ ATALHO_ESCONDER = "<f10>"          # mostra/esconde o overlay
 ATALHO_SAIR = "<ctrl>+<shift>+<f10>"
 
 MONITOR = 1                        # 1 = monitor principal
-INTERVALO_ASSISTIR = 30            # segundos entre capturas automáticas
+INTERVALO_ASSISTIR = 20            # segundos entre capturas automáticas
+INTERVALO_LEGENDA = 2              # segundos entre recortes da faixa de legendas
+LEGENDAS_GUARDADAS = 12            # recortes por pedido (12 x 2s = 24s de falas)
 LIMITE_RESPOSTA = 180              # segundos esperando o Claude antes de desistir
 PASTA = Path(__file__).resolve().parent
 
@@ -79,6 +82,8 @@ class Observador:
         self.pendente: dict | None = None  # só a thread do tkinter mexe
         self.assistindo = False
         self.ultima_enviada: Image.Image | None = None
+        self.legendas: deque[Image.Image] = deque(maxlen=LEGENDAS_GUARDADAS)
+        self.trava_legendas = threading.Lock()
         self.pedidos = 0
         nucleo.cancelar_pedido(PASTA)      # sobra de uma sessão anterior
 
@@ -172,6 +177,23 @@ class Observador:
             ).start()
         self.raiz.after(INTERVALO_ASSISTIR * 1000, self._captura_automatica)
 
+    # ---- legendas (thread própria, o tempo todo) ----
+
+    def _coletar_legendas(self) -> None:
+        # Entre uma captura e outra o Claude não vê nada. Pra ele não perder
+        # as falas, guarda um recorte da faixa de legendas a cada 2 segundos;
+        # os recortes vão juntos, numa imagem só, no próximo pedido.
+        while True:
+            time.sleep(INTERVALO_LEGENDA)
+            try:
+                recorte = nucleo.recortar_legenda(capturar_tela())
+            except Exception:  # noqa: BLE001
+                continue  # captura falhou agora; tenta na próxima volta
+            with self.trava_legendas:
+                ultimo = self.legendas[-1] if self.legendas else None
+                if nucleo.mudou_bastante(ultimo, recorte, limiar=2.0):
+                    self.legendas.append(recorte)
+
     # ---- atalhos (rodam fora da thread do tkinter) ----
 
     def ao_apertar(self, modo: str) -> None:
@@ -190,7 +212,10 @@ class Observador:
             if automatica and not nucleo.mudou_bastante(self.ultima_enviada, img):
                 self.ocupado.release()
                 return  # tela parada: não gasta uma captura à toa
-            pedido = nucleo.criar_pedido(PASTA, img, modo)
+            with self.trava_legendas:
+                legendas = list(self.legendas)
+                self.legendas.clear()
+            pedido = nucleo.criar_pedido(PASTA, img, modo, legendas)
         except Exception as erro:  # noqa: BLE001
             self.ocupado.release()
             if not automatica:
@@ -220,6 +245,7 @@ class Observador:
             }
         )
         atalhos.start()
+        threading.Thread(target=self._coletar_legendas, daemon=True).start()
         try:
             self.raiz.mainloop()
         finally:
